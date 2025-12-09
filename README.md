@@ -46,12 +46,11 @@ Tests must explicitly opt-in to receive spans by calling `OpenTelemetryTestProce
 ```elixir
 defmodule MyAppTest do
   use ExUnit.Case
-  alias OpenTelemetryTestProcessor, as: OtelTest
   alias OpenTelemetry.Tracer
   require Tracer
 
   test "receives spans from traced code" do
-    OtelTest.start()
+    OpenTelemetryTestProcessor.start()
 
     # Your code that generates spans
     Tracer.with_span "my operation" do
@@ -72,7 +71,7 @@ end
 
 ```elixir
 test "validates span attributes" do
-  OtelTest.start()
+  OpenTelemetryTestProcessor.start()
 
   attributes = %{"key" => "value", "count" => 42}
 
@@ -89,7 +88,7 @@ end
 
 ```elixir
 test "captures span events" do
-  OtelTest.start()
+  OpenTelemetryTestProcessor.start()
 
   Tracer.with_span "operation with events" do
     Tracer.add_event("processing started", %{"item_count" => 10})
@@ -106,7 +105,7 @@ end
 
 ```elixir
 test "captures error spans" do
-  OtelTest.start()
+  OpenTelemetryTestProcessor.start()
 
   Tracer.with_span "failing operation" do
     Tracer.set_status(:error, "Something went wrong")
@@ -121,7 +120,7 @@ end
 
 ```elixir
 test "handles nested spans" do
-  OtelTest.start()
+  OpenTelemetryTestProcessor.start()
 
   Tracer.with_span "parent operation" do
     Tracer.set_attributes(%{"level" => "parent"})
@@ -144,7 +143,7 @@ Child processes automatically inherit span tracking permissions:
 
 ```elixir
 test "child processes via Task" do
-  OtelTest.start()
+  OpenTelemetryTestProcessor.start()
 
   task = Task.async(fn ->
     Tracer.with_span "task operation" do
@@ -163,11 +162,11 @@ For processes that aren't direct children, use `allow/2`:
 
 ```elixir
 test "with spawned process" do
-  OtelTest.start()
+  OpenTelemetryTestProcessor.start()
   test_pid = self()
 
   spawn(fn ->
-    OtelTest.allow(test_pid, self())
+    OpenTelemetryTestProcessor.allow(test_pid, self())
 
     Tracer.with_span "spawned operation" do
       Tracer.set_status(:ok)
@@ -188,7 +187,7 @@ Private mode is the default and is safe for `async: true` tests. Each test must 
 setup :set_private
 
 test "isolated test" do
-  OtelTest.start()
+  OpenTelemetryTestProcessor.start()
   # ... test code
 end
 ```
@@ -286,10 +285,9 @@ end
 
 defmodule MyApp.UserServiceTest do
   use ExUnit.Case
-  alias OpenTelemetryTestProcessor, as: OtelTest
 
   test "create_user generates proper spans" do
-    OtelTest.start()
+    OpenTelemetryTestProcessor.start()
 
     MyApp.UserService.create_user(%{email: "test@example.com"})
 
@@ -305,7 +303,7 @@ end
 
 ```elixir
 test "multiple operations" do
-  OtelTest.start()
+  OpenTelemetryTestProcessor.start()
 
   Enum.each(1..3, fn i ->
     Tracer.with_span "operation_#{i}" do
@@ -326,7 +324,7 @@ end
 If you're not receiving spans in your tests:
 
 1. Ensure you've configured the processor in `config/test.exs`
-2. Call `OtelTest.start()` at the beginning of your test
+2. Call `OpenTelemetryTestProcessor.start()` at the beginning of your test
 3. Check that the code generating spans is actually being executed
 4. Use `assert_receive` with a timeout: `assert_receive {:trace_span, _}, 1000`
 
