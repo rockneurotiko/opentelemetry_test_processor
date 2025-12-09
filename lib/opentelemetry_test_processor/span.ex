@@ -53,11 +53,11 @@ defmodule OpenTelemetryTestProcessor.Span do
   """
 
   require Record
-  @span_fields Record.extract(:span, from: "deps/opentelemetry/include/otel_span.hrl")
+  @span_fields Record.extract(:span, from: "./include/otel_span.hrl")
   # Define macros for `Span`.
   Record.defrecord(:span, @span_fields)
 
-  @event_fields Record.extract(:event, from: "deps/opentelemetry/include/otel_span.hrl")
+  @event_fields Record.extract(:event, from: "./include/otel_span.hrl")
   Record.defrecord(:event, @event_fields)
 
   @type status :: %{status: OpenTelemetry.status_code(), message: String.t() | nil}

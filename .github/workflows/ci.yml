@@ -76,3 +76,6 @@ jobs:
 
       - name: Compile once again but without optional deps
         run: mix compile --force --warnings-as-errors --no-optional-deps
+
+      - name: Compare HRL files
+        run: bash ./bin/compare_hrl.sh

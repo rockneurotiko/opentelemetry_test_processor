@@ -60,6 +60,7 @@ defmodule OpentelemetryTestProcessor.MixProject do
     [
       files: [
         "lib/**/*.ex",
+        "include",
         ".formatter.exs",
         "mix.exs",
         "README.md",
