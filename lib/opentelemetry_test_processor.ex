@@ -42,7 +42,12 @@ defmodule OpenTelemetryTestProcessor do
 
   @behaviour :otel_span_processor
 
-  @timeout to_timeout(second: 5)
+  if Elixir.Version.match?(System.version(), ">= 1.17.0") do
+    @timeout to_timeout(second: 5)
+  else
+    @timeout 5_000
+  end
+
   @this {:global, OpenTelemetryTestProcessor.Server}
 
   @type pid_or_name :: pid() | atom()
