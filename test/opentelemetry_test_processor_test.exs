@@ -1,5 +1,5 @@
 defmodule OpenTelemetryTestProcessorTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   doctest OpenTelemetryTestProcessor
 
   alias OpenTelemetryTestProcessor, as: OtelTest
@@ -8,6 +8,8 @@ defmodule OpenTelemetryTestProcessorTest do
 
   alias OpenTelemetry.Tracer
   require Tracer
+
+  setup {OtelTest, :set_from_context}
 
   test "span without start is not received" do
     # Don't call OtelTest.start()

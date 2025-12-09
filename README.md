@@ -200,7 +200,7 @@ Global mode sends all spans to a shared owner process. **Cannot be used with `as
 # In your test module
 use ExUnit.Case, async: false
 
-setup :set_global
+setup {OpenTelemetryTestProcessor, :set_global}
 
 test "shared spans" do
   # No need to call start/1 in global mode
@@ -213,7 +213,7 @@ end
 Automatically choose the mode based on the test context:
 
 ```elixir
-setup :set_from_context
+setup {OpenTelemetryTestProcessor, :set_from_context}
 ```
 
 This uses private mode for `async: true` tests and global mode otherwise.
