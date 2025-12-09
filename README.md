@@ -1,5 +1,9 @@
 # OpenTelemetryTestProcessor
 
+![CI](https://github.com/rockneurotiko/opentelemetry_test_processor/actions/workflows/ci.yml/badge.svg)
+[![Package](https://img.shields.io/hexpm/v/opentelemetry_test_processor.svg)](https://hex.pm/packages/opentelemetry_test_processor)
+[![Documentation](http://img.shields.io/badge/hex.pm-docs-green.svg?style=flat)](https://hexdocs.pm/opentelemetry_test_processor)
+
 A test span processor that behaves like Mox for OpenTelemetry traces. Test your OpenTelemetry instrumentation with the same ease and safety as you test other dependencies.
 
 ## Features
@@ -344,8 +348,10 @@ If spawned processes aren't sending spans:
 
 ## License
 
-[Your License Here]
+Beerware 🍺 — do whatever you want with it, but if we meet, buy me a beer. (This is essentially MIT-like. Use it freely, but if we meet, buy me a beer)
 
-## Contributing
+## Links
+- [GitHub](https://github.com/rockneurotiko/opentelemetry_test_processor)
+- [Hex.pm](https://hex.pm/packages/opentelemetry_test_processor)
+- [Docs](https://hexdocs.pm/opentelemetry_test_processor)
 
-[Your Contributing Guidelines Here]
