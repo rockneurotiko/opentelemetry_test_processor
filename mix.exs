@@ -63,7 +63,6 @@ defmodule OpentelemetryTestProcessor.MixProject do
         ".formatter.exs",
         "mix.exs",
         "README.md",
-        "VERSION",
         "LICENSE"
       ],
       licenses: ["Beerware"],
