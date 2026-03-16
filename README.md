@@ -13,7 +13,7 @@ A test span processor that behaves like Mox for OpenTelemetry traces. Test your 
 - **Child Process Support**: Automatically inherits permissions for spawned tasks and processes
 - **Flexible Ownership**: Use `allow/2` to permit specific processes to send spans
 - **Clean API**: Receive spans as messages with `assert_receive {:trace_span, span}`
-- **Rich Span Data**: Access span name, status, attributes, events, and the original OpenTelemetry span
+- **Rich Span Data**: Access span name, status, attributes, events, trace/span IDs, and the original OpenTelemetry span
 
 ## Installation
 
@@ -40,6 +40,16 @@ config :opentelemetry,
 ```
 
 This disables the default exporter and sets up the test processor to capture spans in your tests.
+
+An optional `:timeout` (in milliseconds) can be provided to configure how long the processor waits for the ownership server on each span (default: 5000ms):
+
+```elixir
+config :opentelemetry,
+  traces_exporter: :none,
+  processors: [
+    {OpenTelemetryTestProcessor, %{timeout: 10_000}}
+  ]
+```
 
 ## Usage
 
@@ -141,6 +151,34 @@ test "handles nested spans" do
 end
 ```
 
+### Verifying Trace Propagation
+
+Use `trace_id`, `span_id`, and `parent_span_id` to assert parent-child relationships between spans:
+
+```elixir
+test "child span is linked to parent" do
+  OpenTelemetryTestProcessor.start()
+
+  Tracer.with_span "parent" do
+    Tracer.with_span "child" do
+      :ok
+    end
+  end
+
+  assert_receive {:trace_span, child}
+  assert_receive {:trace_span, parent}
+
+  # All spans share the same trace
+  assert child.trace_id == parent.trace_id
+
+  # Child's parent is the parent span
+  assert child.parent_span_id == parent.span_id
+
+  # Root span has no parent
+  assert parent.parent_span_id == :undefined
+end
+```
+
 ### Working with Child Processes
 
 Child processes automatically inherit span tracking permissions:
@@ -170,6 +208,9 @@ test "with spawned process" do
   test_pid = self()
 
   spawn(fn ->
+    # allow/2 must be called before the span ends.
+    # Since on_end/2 runs in the same process as the span,
+    # calling allow/2 first is safe here.
     OpenTelemetryTestProcessor.allow(test_pid, self())
 
     Tracer.with_span "spawned operation" do
@@ -255,6 +296,9 @@ Chooses the processor mode based on context. Uses `set_private/1` when `async: t
 The span struct sent to test processes contains:
 
 - `name` - The span name (string)
+- `trace_id` - The 128-bit integer trace ID (shared by all spans in a trace)
+- `span_id` - The 64-bit integer span ID
+- `parent_span_id` - The 64-bit integer parent span ID (`:undefined` for root spans)
 - `status` - A map with `status` (atom: `:ok`, `:error`, `:unset`) and `message` (string)
 - `attributes` - A map of span attributes
 - `events` - A list of event maps with `type` and `attributes` keys
@@ -344,7 +388,15 @@ If you're getting errors about global mode with async tests:
 If spawned processes aren't sending spans:
 
 - Use `Task.async` instead of `spawn` (automatic permission inheritance)
-- Or explicitly call `allow/2` to grant permission
+- Or explicitly call `allow/2` inside the spawned process before creating any spans
+
+### ArgumentError on Named Process
+
+If you see `ArgumentError: no process registered with name ...`, the atom you passed to `start/1` or `allow/2` is not a registered process name. Make sure the process is alive and registered before calling these functions.
+
+### Global Mode Race Condition
+
+`set_global/1` switches the entire ownership server to shared mode, which affects all concurrently running tests. Never use `set_global/1` (or `set_from_context/1` with `async: false`) inside an `async: true` test module. Mixing global mode with async tests can cause spans to be routed to the wrong test process.
 
 ## License
 

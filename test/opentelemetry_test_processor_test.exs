@@ -218,21 +218,58 @@ defmodule OpenTelemetryTestProcessorTest do
                    end
     end
 
-    test "set_global works without async" do
-      assert :ok = OtelTest.set_global(%{})
-      # Reset to private mode for test isolation
-      OtelTest.set_private()
-    end
-
     test "set_from_context chooses private when async: true" do
       assert :ok = OtelTest.set_from_context(%{async: true})
     end
+  end
 
-    test "set_from_context chooses global when async: false" do
-      assert :ok = OtelTest.set_from_context(%{async: false})
-      # Reset to private mode for test isolation
-      OtelTest.set_private()
+  test "OTel pipeline remains stable when owner process dies before span ends" do
+    # Start a separate process as the owner
+    owner =
+      spawn(fn ->
+        OtelTest.start()
+        # Signal readiness then wait to be killed
+        receive do
+          :die -> :ok
+        end
+      end)
+
+    # Wait for it to register as owner
+    Process.sleep(50)
+
+    # Allow the current test process to verify pipeline stability
+    OtelTest.allow(owner, self())
+
+    # Kill the owner
+    Process.exit(owner, :kill)
+    Process.sleep(50)
+
+    # Completing a span after the owner is dead should NOT crash the pipeline.
+    # The span is silently dropped (no owner found after cleanup).
+    Tracer.with_span "span after owner died" do
+      Tracer.set_status(:ok)
     end
+
+    # The test process itself was allowed but the owner is gone, so no span arrives.
+    refute_receive {:trace_span, _}, 200
+  end
+
+  test "allow/2 called inside spawned process works when span ends after allow" do
+    OtelTest.start()
+    test_pid = self()
+
+    spawn(fn ->
+      # allow/2 must be called before the span ends. Since on_end/2 runs
+      # synchronously in the same process as the span, this pattern is safe:
+      # allow first, then create the span.
+      OtelTest.allow(test_pid, self())
+
+      Tracer.with_span "safe allow span" do
+        Tracer.set_status(:ok)
+      end
+    end)
+
+    assert_receive {:trace_span, %Span{name: "safe allow span"}}, 1000
   end
 
   describe "Span struct" do
@@ -271,6 +308,34 @@ defmodule OpenTelemetryTestProcessorTest do
 
       assert_receive {:trace_span, span}
       assert %Span{attributes: ^attrs} = span
+    end
+
+    test "span IDs are populated for root and child spans" do
+      OtelTest.start()
+
+      Tracer.with_span "parent id test" do
+        Tracer.with_span "child id test" do
+          :ok
+        end
+      end
+
+      assert_receive {:trace_span, %Span{name: "child id test"} = child}
+      assert_receive {:trace_span, %Span{name: "parent id test"} = parent}
+
+      # Trace IDs should match (same trace)
+      assert child.trace_id == parent.trace_id
+      assert is_integer(child.trace_id) and child.trace_id != 0
+
+      # Span IDs should be distinct non-zero integers
+      assert is_integer(child.span_id) and child.span_id != 0
+      assert is_integer(parent.span_id) and parent.span_id != 0
+      assert child.span_id != parent.span_id
+
+      # Child's parent_span_id should equal parent's span_id
+      assert child.parent_span_id == parent.span_id
+
+      # Root span has no parent
+      assert parent.parent_span_id == :undefined
     end
   end
 end

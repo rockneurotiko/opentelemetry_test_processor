@@ -4,5 +4,9 @@ All notable changes to this project will be documented in this file.
 
 
 ## [Unreleased]
+## [0.1.1]
+- Fix bug and find ancestors
+
+## [0.1.0]
 ### Added
 - First Release!

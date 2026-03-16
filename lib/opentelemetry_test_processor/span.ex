@@ -9,6 +9,9 @@ defmodule OpenTelemetryTestProcessor.Span do
   ## Fields
 
   * `:name` - The name of the span (string)
+  * `:trace_id` - The 128-bit integer trace ID
+  * `:span_id` - The 64-bit integer span ID
+  * `:parent_span_id` - The 64-bit integer parent span ID (nil for root spans)
   * `:status` - A map containing:
     * `:status` - The status code (`:ok`, `:error`, or `:unset`)
     * `:message` - An optional status message (string or empty string)
@@ -53,6 +56,7 @@ defmodule OpenTelemetryTestProcessor.Span do
   """
 
   require Record
+
   @span_fields Record.extract(:span, from: "./include/otel_span.hrl")
   # Define macros for `Span`.
   Record.defrecord(:span, @span_fields)
@@ -60,54 +64,82 @@ defmodule OpenTelemetryTestProcessor.Span do
   @event_fields Record.extract(:event, from: "./include/otel_span.hrl")
   Record.defrecord(:event, @event_fields)
 
+  @status_fields Record.extract(:status, from_lib: "opentelemetry_api/include/opentelemetry.hrl")
+  Record.defrecord(:status, @status_fields)
+
   @type status :: %{status: OpenTelemetry.status_code(), message: String.t() | nil}
   @type t :: %__MODULE__{
           name: String.t(),
+          trace_id: non_neg_integer() | nil,
+          span_id: non_neg_integer() | nil,
+          parent_span_id: non_neg_integer() | nil,
           status: status(),
           attributes: %{optional(String.t()) => any()},
           events: [map()],
           original_span: any()
         }
 
-  defstruct [:name, :status, :attributes, :events, :original_span]
+  defstruct [
+    :name,
+    :trace_id,
+    :span_id,
+    :parent_span_id,
+    :status,
+    :attributes,
+    :events,
+    :original_span
+  ]
 
-  def from_otel_span(span(name: name) = span) do
+  def from_otel_span(
+        span(
+          name: name,
+          trace_id: trace_id,
+          span_id: span_id,
+          parent_span_id: parent_span_id,
+          status: raw_status,
+          attributes: raw_attributes,
+          events: raw_events
+        ) = otel_span
+      ) do
     %__MODULE__{
       name: name,
-      status: maybe_extract(span, :status),
-      attributes: maybe_extract(span, :attributes),
-      events: maybe_extract(span, :events),
-      original_span: span
+      trace_id: trace_id,
+      span_id: span_id,
+      parent_span_id: parent_span_id,
+      status: extract_status(raw_status),
+      attributes: extract_attributes(raw_attributes),
+      events: extract_events(raw_events),
+      original_span: otel_span
     }
   end
 
-  defp maybe_extract(span(status: status), :status) do
-    case status do
-      {:status, status, status_message} -> %{status: status, message: status_message}
+  defp extract_status(raw) do
+    case raw do
+      status(code: code, message: message) -> %{status: code, message: message}
       _ -> %{status: :unset, message: ""}
     end
   end
 
-  defp maybe_extract(span(attributes: attributes), :attributes) do
-    case attributes do
-      {:attributes, _, _, _, attributes} -> attributes
-      _ -> nil
+  defp extract_attributes(raw) do
+    case raw do
+      nil -> nil
+      _ -> :otel_attributes.map(raw)
     end
   end
 
-  defp maybe_extract(span(events: events), :events) do
-    case events do
-      {:events, _, _, _, _, events} -> Enum.map(events || [], &maybe_extract(&1, :full_event))
-      _ -> []
+  defp extract_events(raw) do
+    case raw do
+      nil ->
+        []
+
+      _ ->
+        raw
+        |> :otel_events.list()
+        |> Enum.map(&extract_event/1)
     end
   end
 
-  defp maybe_extract(event(name: name, attributes: attributes), :full_event) do
-    case attributes do
-      {:attributes, _, _, _, attributes} -> %{attributes: attributes, type: name}
-      _ -> nil
-    end
+  defp extract_event(event(name: name, attributes: raw_attributes)) do
+    %{type: name, attributes: :otel_attributes.map(raw_attributes)}
   end
-
-  defp maybe_extract(_span, _field), do: nil
 end

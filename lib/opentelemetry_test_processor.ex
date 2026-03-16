@@ -12,6 +12,15 @@ defmodule OpenTelemetryTestProcessor do
           {OpenTelemetryTestProcessor, %{}}
         ]
 
+  An optional `:timeout` (in milliseconds) can be provided to configure how long
+  `on_end` will wait for the NimbleOwnership server (default: 5000ms):
+
+      config :opentelemetry,
+        traces_exporter: :none,
+        processors: [
+          {OpenTelemetryTestProcessor, %{timeout: 10_000}}
+        ]
+
 
   Tests must opt-in to receive spans:
 
@@ -117,7 +126,7 @@ defmodule OpenTelemetryTestProcessor do
 
   defp find_pid(name) when is_atom(name) do
     case Process.whereis(name) do
-      nil -> name
+      nil -> raise ArgumentError, "no process registered with name #{inspect(name)}"
       pid -> pid
     end
   end
@@ -189,13 +198,14 @@ defmodule OpenTelemetryTestProcessor do
   def on_start(_ctx, span, _config), do: span
 
   @impl :otel_span_processor
-  def on_end(span, _config) do
+  def on_end(span, config) do
     # Get the current process and its callers (parent processes)
     # This allows child processes to automatically inherit permissions
-    callers = [self() | caller_pids()]
+    callers = all_pids()
+    timeout = Map.get(config, :timeout, @timeout)
 
     # Try to find the owner process that started tracking
-    case NimbleOwnership.fetch_owner(@this, callers, :spans, @timeout) do
+    case NimbleOwnership.fetch_owner(@this, callers, :spans, timeout) do
       {:ok, owner_pid} ->
         # Send the span to the owner
         forward_span(owner_pid, span)
@@ -210,6 +220,8 @@ defmodule OpenTelemetryTestProcessor do
     end
 
     true
+  rescue
+    _ -> true
   end
 
   @impl :otel_span_processor
@@ -224,10 +236,29 @@ defmodule OpenTelemetryTestProcessor do
 
   # Get the list of caller PIDs from the process dictionary
   # This is automatically set by Task and other OTP behaviors
-  defp caller_pids do
-    case Process.get(:"$callers") do
-      nil -> []
-      pids when is_list(pids) -> pids
-    end
+  defp all_pids do
+    self = [self()]
+    callers = Process.get(:"$callers") || []
+
+    # Add direct parent from process info
+    parent =
+      case Process.info(self(), :parent) do
+        {:parent, pid} when is_pid(pid) -> [pid]
+        _ -> []
+      end
+
+    # Add ancestors (supervision tree)
+    ancestors = Process.get(:"$ancestors") || []
+
+    ancestor_pids =
+      ancestors
+      |> Enum.map(fn
+        x when is_pid(x) -> x
+        x when is_atom(x) -> Process.whereis(x)
+        _ -> nil
+      end)
+      |> Enum.reject(&is_nil/1)
+
+    Enum.uniq(self ++ callers ++ parent ++ ancestor_pids)
   end
 end
