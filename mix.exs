@@ -8,7 +8,7 @@ defmodule OpentelemetryTestProcessor.MixProject do
     [
       app: :opentelemetry_test_processor,
       version: @version,
-      elixir: "~> 1.14",
+      elixir: "~> 1.16",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       description: "A test OpenTelemetry span processor for Elixir",
