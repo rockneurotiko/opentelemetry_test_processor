@@ -1,8 +1,8 @@
 # OpenTelemetryTestProcessor
 
 ![CI](https://github.com/rockneurotiko/opentelemetry_test_processor/actions/workflows/ci.yml/badge.svg)
-[![Package](https://img.shields.io/hexpm/v/opentelemetry_test_processor.svg)](https://hex.pm/packages/opentelemetry_test_processor)
-[![Documentation](http://img.shields.io/badge/hex.pm-docs-green.svg?style=flat)](https://hexdocs.pm/opentelemetry_test_processor)
+[![Package](https://img.shields.io/hexpm/v/opentelemetry_test_processor.svg?logo=elixir)](https://hex.pm/packages/opentelemetry_test_processor)
+[![Documentation](http://img.shields.io/badge/hex.pm-docs-green.svg?style=flat&logo=elixir)](https://hexdocs.pm/opentelemetry_test_processor)
 
 A test span processor that behaves like Mox for OpenTelemetry traces. Test your OpenTelemetry instrumentation with the same ease and safety as you test other dependencies.
 
